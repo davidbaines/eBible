@@ -16,17 +16,16 @@ base_url = r"https://ebible.org/Scriptures/"
 file_suffix = "_usfm.zip"
 
 root_folder = Path(
-    r"D:\GitHub\BibleNLP\bible-parallel-corpus-internal\corpus\eBible"
+    r"D:\GitHub\davidbaines\ebibles"
 )
-root_folder = Path(r"C:\eBible")
-zips_folder = root_folder / "sources"
-unzipped_folder = root_folder / "extracted_sources"
+
+zips_folder = root_folder / "downloads"
+unzipped_folder = root_folder / "unzipped"
 
 metadata_folder = root_folder / "metadata"
 metadata_csv = metadata_folder / "translations.csv"
 
 online_csv_url = r"https://ebible.org/Scriptures/translations.csv"
-
 
 
 def download_csv_file(url, headers, save_as):
@@ -129,9 +128,6 @@ def main():
     print(
         f"There are {len(already_downloaded)} files with the suffix {file_suffix} already in {zips_folder}"
     )
-
-    print(already_downloaded[0:2])
-    print(filenames[0:2])
 
     # Those that require downloading are the filenames - already_downloaded.
     to_download = set(filenames) - set(already_downloaded)
