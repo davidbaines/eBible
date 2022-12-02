@@ -21,11 +21,16 @@ def fix_file(file):
         # Count verses with some text, including range markers.
         if  line != '':
             verse_count += 1
-            if line == "<range>":  
+            if line == "<range>":
                 range_count += 1
                 if prev_line == '':
                     empty_range += 1
+                    verse_count -= 1
                     lines[idx] = ''
+
+            if line == "...":
+                verse_count -= 1
+                lines[idx] = ''
 
         #print(range_count, lines[idx-1],lines[idx])
 
