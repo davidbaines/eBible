@@ -84,18 +84,5 @@ def main():
     print(f"{total_empty/total_ranges * 100:.4f}% of ranges are empty_ranges.")
 
 
-#    fix_count = 0
-
-#    for fix in fixes:
-#        if fix > 0:
-#            fix_count += 1 
-    
-    
-#    print(f"Found {len(files)} files. These are the {fix_count} files that were fixed:")
-
-#    for file, count in counts:
-#        if count > 0:
-#            print(count, file)
-
 if __name__ == "__main__":
     main()
