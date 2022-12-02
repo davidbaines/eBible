@@ -4,7 +4,9 @@ import multiprocessing as mp
 from pathlib import Path
 
 
-def fix_file(file):
+def fix_file(params):
+    
+    file, output_folder = params
 
     range_count = 0
     verse_count = 0
@@ -35,7 +37,9 @@ def fix_file(file):
         #print(range_count, lines[idx-1],lines[idx])
 
     if empty_range > 0:
-        with open(file, 'w', encoding='utf-8',newline='\n') as f_out:
+        output_file = output_folder / file.name
+
+        with open(output_file, 'w', encoding='utf-8',newline='\n') as f_out:
             f_out.writelines(lines)
 
     return (verse_count, range_count, empty_range)
@@ -44,10 +48,13 @@ def fix_file(file):
 def main():
     parser = argparse.ArgumentParser(description="Removes empty ranges from extracts.")
     parser.add_argument("input", type=Path, help="The extract folder.")
+    parser.add_argument("output", type=Path, help="The folder for modified output files.")
     args = parser.parse_args()
 
     input = Path(args.input)
-
+    
+    output_folder = Path(args.output)
+    
     files = [file for file in input.glob("*.txt")]
 
     #for file in files[:10]:
@@ -62,7 +69,7 @@ def main():
     pool = mp.Pool(cpus_to_use)
 
     # Iterate over files_found with multiple processors.
-    counts = pool.map(fix_file, [file for file in files])
+    counts = pool.map(fix_file, [(file, output_folder) for file in files])
     pool.close()
 
     file_info = {}
