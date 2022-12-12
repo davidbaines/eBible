@@ -134,6 +134,7 @@ def unzip_ebibles(source_folder, file_suffix, dest_folder):
 
     log_and_print(f"Finished unzipping eBible files")
 
+
 def get_filenames(metadata_csv):
     file_infos = []
     countall = count_redist = 0
