@@ -92,35 +92,32 @@ def unzip_ebibles(source_folder, file_suffix, unzip_folder, logfile):
     log_and_print(logfile, f"Finished unzipping eBible files")
 
 
-def get_filenames(translations_csv, file_suffix,logfile):
-    #TODO :
-    # This would no doubt be shorter using pandas.
+def get_redistributable(translations_csv):
     
-    file_infos = []
-    redistributable = []
-    all = []
+    redistributable_files = []
+    all_files = []
 
     with open(translations_csv, encoding="utf-8-sig", newline="") as csvfile:
         reader = DictReader(csvfile, delimiter=",", quotechar='"')
         for row in reader:
+            all_files.append(row["translationId"])
+
             if row["Redistributable"] == "True":
-                row["Redistributable"] = True
-                count_redist += 1
+                redistributable_files.append(row["translationId"])
 
-            elif row["Redistributable"] == "False":
-                row["Redistributable"] = False
-            
-            else : 
-                log_and_print(logfile, f"In the translations.csv file the {row['translationId']} has neither True or False listed in the Redistributable column.")
-
-            file_infos.append(row)
-
-        filenames = [row["translationId"] + file_suffix for row in file_infos]
-        log_and_print(logfile, f"The translations csv file lists {countall} translations and {count_redist} are redistributable.")
-
-        return filenames
+        return all_files, redistributable_files
 
 # Define methods for creating the copyrights file
+
+def norm_name(name):
+    if len(name) < 3:
+        return None
+    elif len(name) == 3: 
+        return f"{name[:3]}-{name}"
+    elif len(name) >= 7  and name[3] == '-' and name[0:3] == name[4:7]:
+        return name
+    else :
+        return f"{name[:3]}-{name}"
 
 def path_leaf(path):
     head, tail = ntpath.split(path)
@@ -217,23 +214,38 @@ def main():
         exit(1)
 
     file_suffix = "_usfm.zip"
+
     # Get filenames
-    all_files, redistributable_files = get_filenames(translations_csv,file_suffix,logfile)
+    all_files, redistributable_files = get_redistributable(translations_csv)
+    restricted_files = set(all_files) - set(redistributable_files)
+
+    all_filenames = sorted([file + file_suffix for file in all_files])
+    redistributable_filenames = sorted([file + file_suffix for file in redistributable_files])
+    resticted_filenames = sorted([file + file_suffix for file in restricted_files])
+
+    log_and_print(logfile, f"The translations csv file lists {len(all_files)} translations and {len(redistributable_files)} are redistributable.")
+    log_and_print(logfile, f"The translations csv file lists {len(restricted_files)} restrcited translations.")
+    log_and_print(logfile, f"{len(restricted_files)} + {len(redistributable_files)} = {len(restricted_files) + len(redistributable_files)}")
 
     # Find which files have already been downloaded. 
     already_downloaded = sorted([file.name for file in zipped.glob("*" + file_suffix)])
     
-    
     # These wont download usually.
     wont_download = ["due_usfm.zip", "engamp_usfm.zip", "engnasb_usfm.zip", "khm-h_usfm.zip", "khm_usfm.zip", "sancol_usfm.zip", "sankan_usfm.zip", "spaLBLA_usfm.zip", "spanblh_usfm.zip"]
+
+    # For downloading we need to maintain the eBible names e.g. aai_usfm.zip
+    print(all_filenames[:3])
+    print(already_downloaded[:3])
+    print(wont_download[:3])
+    print(resticted_filenames[:3])
+    exit()
 
     log_and_print(logfile, f"There are {len(already_downloaded)} files with the suffix {file_suffix} already in {zipped}")
     log_and_print(logfile, f"There are {len(wont_download)} files that usually fail to download.")
 
-    wont_download.extend(already_downloaded)
-
-    to_download = sorted(set(filenames) - set(wont_download))
-    log_and_print(logfile, f"\nThere are {len(to_download)} files still to download.")
+    dont_download = set(already_downloaded).union(set(wont_download))
+    to_download = sorted(set(all_filenames) - set(dont_download))
+    log_and_print(logfile, f"There are {len(to_download)} files still to download.")
 
 
     # Download the zipped USFM file if it doesn't already exist.
@@ -266,7 +278,7 @@ def main():
             else:
                 log_and_print(logfile, f"Could not download {url}\n")
                 
-    log_and_print(logfile, f"Finished downloading eBible files")
+    log_and_print(logfile, f"Finished downloading eBible files\n")
 
     unzip_ebibles(zipped, file_suffix, unzipped, logfile)
 
@@ -280,12 +292,12 @@ def main():
 
     for i, copyright_info_file in enumerate(sorted(unzipped.glob("**/copr.htm"))):
         id = str(copyright_info_file.parents[0].relative_to(unzipped))
-
-        if i % 100 == 0 :
-            print(f"Read {i} files. Now reading: {copyright_info_file}")
         
         id_match = regex.match(copr_regex, str(copyright_info_file))
         id = id_match["id"]
+
+        if i % 100 == 0 :
+            print(f"Read {i} files. Now reading: {copyright_info_file} with ID: {id}")
 
         entry = dict()
         entry["ID"] = str(id)
@@ -346,14 +358,31 @@ def main():
         
         data.append(entry)
 
-        with open(licence_file, "w", encoding="utf-8", newline='') as csv_out:
-            writer = DictWriter(
-                csv_out, csv_headers, restval="", extrasaction="ignore", dialect="excel",
-            )
-            writer.writeheader()
-            writer.writerows(data)
+    with open(licence_file, "w", encoding="utf-8", newline='') as csv_out:
+        writer = DictWriter(
+            csv_out, csv_headers, restval="", extrasaction="ignore", dialect="excel",
+        )
+        writer.writeheader()
+        writer.writerows(data)
         
-    log_and_print(logfile, f"Wrote copyright info to {licence_file}")
+    log_and_print(logfile, f"Wrote copyright info for {len(data)} translations to {licence_file}\n")
+
+    extracted_files = [entry['ID'][4:] for entry in data]
+    missing_files = [file + file_suffix for file in sorted(set(all_files) - set(extracted_files))]
+    unexpectedly_missing = set(missing_files) - set(wont_download)
+
+    print(f"There are {len(unexpectedly_missing)} missing extract folders.")
+
+    if len(unexpectedly_missing) == 0:
+        print(f"There are exactly {len(wont_download)} missing unzipped folders. They are the same {len(missing_files)} that we didn't try to download.")
+    else :
+        print(f"{len(unexpectedly_missing)} files were not extracted. Upto 50 are shown:")
+        for file in sorted(unexpectedly_missing)[:50]:
+            print(file)
+    
+    #print(sorted(all_files)[:3])
+    #print(extracted_files[:3])
+    #print(sorted(missing_files)[:3])
 
 if __name__ == "__main__":
     main()
